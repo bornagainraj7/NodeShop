@@ -20,6 +20,8 @@ let getProduct = (req, res) => {
 }
 
 let getIndex = (req, res) => {
+    // console.log(Date.now());
+    // console.log(new Date());
     Product.find()
     .then((products) => {
         res.render('shop/index', { prods: products, pageTitle: 'Shop', path: '/', csrfToken: req.csrfToken() });

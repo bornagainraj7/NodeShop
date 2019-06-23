@@ -57,6 +57,11 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
+    if(req.session.user) {
+        res.locals.email = req.session.user.email;
+    } else {
+        res.locals.email = '';
+    }
     res.locals.isAuthenticated = req.session.isLoggedIn;
     res.locals.csrfToken = req.csrfToken();
     next();
