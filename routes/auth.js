@@ -2,16 +2,51 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 
+const { check, body } = require('express-validator');
+
 
 router.get('/login', authController.getLogin);
 
-router.post('/login', authController.postLogin);
+router.post('/login', [
+        body('email', 'Please enter a valid email').isEmail().normalizeEmail(),
+        body('password', 'Password should be atleast of 6 characters').trim().isLength({ min: 6, max: 32 })
+    ], authController.postLogin);
 
 router.post('/logout', authController.postLogout);
 
 router.get('/signup', authController.getSignup);
 
-router.post('/signup', authController.postSignup);
+router.post('/signup', [
+        check('email')
+        .isEmail()
+        .normalizeEmail()
+        .withMessage('Please enter a valid email')
+        .custom((value, {req}) => {
+            // if (value === 'test@test.com') {
+            //     throw new Error('This email is forbidden');
+            // }
+            // return true;
+
+            return User.findOne({ email: value })
+            .then(userData => {
+                if (userData) {
+                    return Promise.reject('Email already in use, please select another one.')
+                }
+            })
+        }), 
+        body('password', 'Password should be atleast of 6 characters')
+        .trim()
+        .isLength({min: 6, max: 32}) ,
+        body('confirmPassword')
+        .trim()
+        .custom((value, { req }) => {
+            if(value !== req.body.password) {
+                throw new Error('Passwords have to match!');
+            }
+            return true;
+        })
+    ],
+    authController.postSignup);
 
 router.get('/reset', authController.getReset);
 
