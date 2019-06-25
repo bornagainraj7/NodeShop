@@ -7,6 +7,8 @@ const session = require('express-session');
 const MongoSession = require('connect-mongodb-session')(session);
 const csrf = require('csurf');
 const flash = require('connect-flash');
+const multer = require('multer');
+const shortId = require('shortid');
 
 const adminRoutes = require('./routes/admin');
 const shopRoutes = require('./routes/shop');
@@ -23,12 +25,39 @@ const mongoStore = new MongoSession({
     collection: 'sessions'
 });
 
+// multer
+const MIME_TYPE_MAP = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg"
+}
+const fileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'images');
+    },
+    filename: (req, file, cb) => {
+        let name = shortId.generate();
+        let ext = MIME_TYPE_MAP[file.mimetype];
+        cb(null, 'image'+Date.now()+name+'.'+ext);
+    }
+});
+
+const fileMimeFilters = (req, file, cb) => {
+    if(file.mimetype === 'image/png' || file.mimetype === 'image/jpg' || file.mimetype === 'image/jpeg') {
+        cb(null, true);
+    } else {
+        cb(null, false);
+    }
+}
+// multer ends
 
 app.set('view engine', 'ejs');
 app.set('views', 'views'); // ('views', 'the folder to find view files to render')
 
 app.use(bodyParser.urlencoded({extended: false}));
+app.use(multer({ storage: fileStorage, fileFilter: fileMimeFilters}).single('image'));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(__dirname, '/images')));
 app.use(
     session({
         secret: 'my-secret-for-this-session', 
@@ -43,21 +72,8 @@ app.use(flash());
 
 console.log('server started');
 
-// Dummt Auth middleware
 app.use((req, res, next) => {
-    if (!req.session.user) {
-        return next();
-    }
-    User.findById(req.session.user._id)
-        .then(user => {
-            req.user = user;
-            next();
-        })
-        .catch(err => console.log(err));
-});
-
-app.use((req, res, next) => {
-    if(req.session.user) {
+    if (req.session.user) {
         res.locals.email = req.session.user.email;
     } else {
         res.locals.email = '';
@@ -67,13 +83,58 @@ app.use((req, res, next) => {
     next();
 });
 
+// Dummt Auth middleware
+app.use((req, res, next) => {
+    if (!req.session.user) {
+        return next();
+    }
+    User.findById(req.session.user._id)
+        .then(user => {
+            if(!user) {
+                return next();
+            }
+            req.user = user;
+            // console.log(req.session.isLoggedIn);
+            next();
+        })
+        .catch(err => {
+            console.log(err);
+            next(new Error(err));
+        });
+});
+
+// Route logger
+app.use((req, res, next) => {
+    console.log(req.method + " " + req.originalUrl);
+    next();
+})
+
+
 // Routes
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
 app.use(authRoutes);
 
+
+app.use('/500', errorController.get500);
 app.use(errorController.get404); 
 
+// global error handler   
+app.use((error, req, res, next) => {
+    console.log(req.method + " " + req.originalUrl);
+    console.log(error);
+    let isAuthenticated;
+    if (req.session) {
+        isAuthenticated = req.session.isLoggedIn;
+    } else {
+        isAuthenticated = false;
+    }
+    res.status(500).render('500', {
+        pageTitle: 'Error',
+        path: '/500',
+        isAuthenticated: isAuthenticated
+    });
+});
 
 mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useFindAndModify: false, useCreateIndex: true })
 .then(connect => {
