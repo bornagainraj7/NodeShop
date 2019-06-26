@@ -187,7 +187,7 @@ let postDeleteProduct = (req, res, next) => {
             return next(new Error('Product not found.'));
         }
         fileHelper.deleteFile(product.imageUrl);
-        
+
         return Product.deleteOne({ _id: prodId, userId: req.user._id });
     })
     .then(() => {
@@ -203,6 +203,37 @@ let postDeleteProduct = (req, res, next) => {
 }
 
 
+let deleteProduct = (req, res, next) => {
+    const prodId = req.params.productId;
+
+    Product.findById(prodId)
+    .then(product => {
+        if (!product) {
+            return next(new Error('Product not found.'));
+        }
+        fileHelper.deleteFile(product.imageUrl);
+
+        return Product.deleteOne({ _id: prodId, userId: req.user._id });
+    })
+    .then(() => {
+        console.log('Product deleted');
+        res.status(201).json({
+            error: false,
+            message: 'Product deleted',
+            errorMessage: null
+        });
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json({
+            error: true,
+            message: 'Product deleting failed',
+            errorMessage: err
+        });
+    });
+}
+
+
 
 module.exports = {
     getAddProduct: getAddProduct,
@@ -210,5 +241,6 @@ module.exports = {
     getEditProduct: getEditProduct,
     getProducts: getProducts,
     postEditProduct: postEditProduct,
-    postDeleteProduct: postDeleteProduct
+    postDeleteProduct: postDeleteProduct,
+    deleteProduct: deleteProduct
 }
