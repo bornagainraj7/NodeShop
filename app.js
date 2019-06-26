@@ -14,6 +14,8 @@ const adminRoutes = require('./routes/admin');
 const shopRoutes = require('./routes/shop');
 const authRoutes = require('./routes/auth');
 const errorController = require('./controllers/errorController');
+const shopController = require('./controllers/shopController');
+const isAuth = require('./middlewares/isAuth');
 
 const MONGODB_URI = 'mongodb://127.0.0.1:27017/NodeDB';
 const csrfProtection = csrf();
@@ -66,7 +68,7 @@ app.use(
         store: mongoStore 
     })
 ); // Session middleware initialization
-app.use(csrfProtection);
+
 app.use(flash());
 
 
@@ -79,7 +81,6 @@ app.use((req, res, next) => {
         res.locals.email = '';
     }
     res.locals.isAuthenticated = req.session.isLoggedIn;
-    res.locals.csrfToken = req.csrfToken();
     next();
 });
 
@@ -109,6 +110,15 @@ app.use((req, res, next) => {
     next();
 })
 
+
+app.post('/create-order', isAuth, shopController.postOrder);
+
+app.use(csrfProtection);
+
+app.use((req, res, next) => {
+    res.locals.csrfToken = req.csrfToken();
+    next();
+});
 
 // Routes
 app.use('/admin', adminRoutes);
